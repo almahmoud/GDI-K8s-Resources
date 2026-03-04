@@ -21,10 +21,10 @@ data:
     management:
       health:
         solr:
-          enabled: ${FDP_HEALTH_SOLR:false}
+          enabled: ${FDP_HEALTH_SOLR:true}
       info:
         defaults:
-          enabled: ${FDP_INFO_ENABLED:false}
+          enabled: ${FDP_INFO_ENABLED:true}
 
     repository:
       type: 4

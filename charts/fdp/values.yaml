@@ -40,8 +40,8 @@ server:
      persistentUrl: ""  # Defaults to clientUrl if empty
      title: "BG GDI DEV FAIR Data Point"
      description: "A FAIR Data Point instance for development and testing purposes."
-     healthSolrEnabled: false
-     infoEnabled: false
+     healthSolrEnabled: true
+     infoEnabled: true
   
   # MongoDB connection
   mongo:
