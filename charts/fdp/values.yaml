@@ -36,8 +36,8 @@ server:
   
    # Environment variables
     env:
-     clientUrl: "https://gdi-fdp-client-dev.mmcbg.org"
-     persistentUrl: "https://purl.org/fairdatapoint/example"
+     clientUrl: "https://gdi-fdp.example.com"
+     persistentUrl: ""  # Defaults to clientUrl if empty
      title: "BG GDI DEV FAIR Data Point"
      description: "A FAIR Data Point instance for development and testing purposes."
      healthSolrEnabled: false

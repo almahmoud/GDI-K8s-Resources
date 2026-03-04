@@ -8,8 +8,8 @@ metadata:
 data:
   application.yml: |
     instance:
-      clientUrl: {{ .Values.server.env.clientUrl | quote }}
-      persistentUrl: {{ .Values.server.env.persistentUrl | quote }}
+      clientUrl: {{ required "server.env.clientUrl is required" .Values.server.env.clientUrl | quote }}
+      persistentUrl: {{ .Values.server.env.persistentUrl | default .Values.server.env.clientUrl | quote }}
       title: {{ .Values.server.env.title | quote }}
       description: {{ .Values.server.env.description | quote }}
     
