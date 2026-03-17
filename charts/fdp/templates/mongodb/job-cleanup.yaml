@@ -1,0 +1,89 @@
+{{- if and .Values.mongodb.enabled (not .Values.mongodb.useExternal) (or .Values.mongodb.init.enabled .Values.mongodb.cleanup.enabled) }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "fdp.fullname" . }}-mongodb-init
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+  labels:
+    {{- include "fdp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  backoffLimit: 3
+  completionMode: NonIndexed
+  template:
+    metadata:
+      labels:
+        {{- include "fdp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mongodb-init
+        image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+        imagePullPolicy: {{ .Values.mongodb.image.pullPolicy }}
+        command:
+        - bash
+        - -c
+        - |
+          set -e
+          echo "Waiting for MongoDB to be ready..."
+          until mongosh --host {{ include "fdp.fullname" . }}-mongodb:27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval "db.adminCommand('ping')" > /dev/null 2>&1; do
+            echo "Waiting for MongoDB..."
+            sleep 2
+          done
+          echo "MongoDB is ready. Running initialization..."
+          
+          mongosh --host {{ include "fdp.fullname" . }}-mongodb:27017 -u $MONGO_INITDB_ROOT_USERNAME -p $MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin << 'MONGOEOF'
+          use {{ .Values.mongodb.auth.database }};
+          
+          {{- if .Values.mongodb.cleanup.enabled }}
+          // Delete specified users
+          db.user.deleteMany({
+            email: {
+              $in: [
+                {{- range .Values.mongodb.cleanup.usersToDelete }}
+                "{{ . }}",
+                {{- end }}
+              ]
+            }
+          });
+          console.log("Deleted default users");
+          {{- end }}
+          
+          {{- if .Values.mongodb.init.enabled }}
+          // Delete all existing users first
+          db.user.deleteMany({});
+          
+          // Insert new users
+          {{- range .Values.mongodb.init.users }}
+          db.user.insertOne({
+            "_id": ObjectId(),
+            "uuid": "{{ .uuid }}",
+            "firstName": "{{ .firstName }}",
+            "lastName": "{{ .lastName }}",
+            "email": "{{ .email }}",
+            "passwordHash": "{{ .passwordHash }}",
+            "role": "{{ .role }}",
+            "_class": "nl.dtls.fairdatapoint.entity.user.User"
+          });
+          {{- end }}
+          console.log("Created new users");
+          {{- end }}
+          
+          MONGOEOF
+          echo "Initialization completed successfully"
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "fdp.fullname" . }}-secrets
+              key: MONGODB_ROOT_USERNAME
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "fdp.fullname" . }}-secrets
+              key: MONGODB_ROOT_PASSWORD
+{{- end }}

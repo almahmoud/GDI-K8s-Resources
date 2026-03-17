@@ -121,6 +121,10 @@ The following table lists the configurable parameters of the FDP chart and their
 | `mongodb.persistence.storageClass` | Storage class | `"harvester-longhorn"` |
 | `mongodb.persistence.size` | Storage size | `"10Gi"` |
 | `mongodb.resources` | Resource requests/limits | See values.yaml |
+| `mongodb.init.enabled` | Initialize with default users | `false` |
+| `mongodb.init.users` | List of users to create | See values.yaml |
+| `mongodb.cleanup.enabled` | Enable user cleanup hook | `false` |
+| `mongodb.cleanup.usersToDelete` | List of user emails to delete | `[]` |
 
 ### GraphDB Parameters
 
@@ -290,6 +294,140 @@ To add new components to the chart:
 2. Add configuration options to `values.yaml`
 3. Update the documentation
 4. Test the new component thoroughly
+
+### MongoDB User Initialization and Cleanup
+
+The chart supports initializing MongoDB with default users and/or cleaning up specific users after FDP deployment completes. Both operations are handled by a single post-install/post-upgrade hook Job that runs **after FDP is fully deployed**.
+
+#### How It Works
+
+- **Post-Install Hook**: The job runs after successful FDP Client deployment
+- **Consolidated Operation**: All user management (deletion and creation) happens in a single MongoDB session
+- **No External Scripts**: All operations are defined inline within the Helm values
+
+#### Enabling User Initialization
+
+To create default users when MongoDB is initialized, set:
+
+```yaml
+mongodb:
+  init:
+    enabled: true
+    users:
+      - uuid: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        firstName: "Admin"
+        lastName: "User"
+        email: "admin@example.com"
+        passwordHash: "$2b$10$M1tsK2jrPBSfmUEYF63l4.mZM4R0u3SKgsiTldp.xjF2LxoLki.R2"
+        role: "ADMIN"
+      - uuid: "131b32be-37d2-49df-b67c-be59aefafde7"
+        firstName: "Test"
+        lastName: "User"
+        email: "test@example.com"
+        passwordHash: "$2b$10$u0cuYZwkBaQEqZ.ooHflTeaJZi73bCkNPmpuMo7rFaAnGjAoi2Lpu"
+        role: "USER"
+```
+
+#### Enabling User Cleanup
+
+To delete specific users after FDP Client deployment (useful for removing default test users or users from previous deployments), set:
+
+```yaml
+mongodb:
+  cleanup:
+    enabled: true
+    usersToDelete:
+      - "albert.einstein@example.com"
+      - "nikola.tesla@example.com"
+```
+
+#### Using Both Features Together
+
+Both can be enabled simultaneously. The job will:
+1. Delete the specified cleanup users
+2. Delete all existing users
+3. Insert the new users from the init configuration
+
+```yaml
+mongodb:
+  init:
+    enabled: true
+    users: [...]
+  cleanup:
+    enabled: true
+    usersToDelete: [...]
+```
+
+#### Important Notes
+
+- **Execution Order**: When both are enabled, cleanup happens first, then initialization
+- **No Plaintext Passwords Stored**: Only password hashes are used; the `password` field in values.yaml is optional and for reference only
+- **Idempotent**: The job can be safely re-run (it automatically cleans up previous Job runs)
+- **Waits for FDP**: The job only runs after all FDP components are deployed and ready
+
+#### Generating Bcrypt Password Hashes
+
+The FDP system uses bcrypt for password hashing. You need to generate bcrypt hashes for each user's password and populate the `passwordHash` field.
+
+**Important:** The `password` field is optional and only for documentation/reference. The system only uses the `passwordHash` field for authentication.
+
+**Quick Docker Command (Recommended):**
+
+```bash
+docker run --rm python:3.11-slim bash -c "pip install -q bcrypt && python3 -c \"import bcrypt; print(bcrypt.hashpw(b'your-password-here', bcrypt.gensalt(10)).decode())\""
+```
+
+**Example:**
+```bash
+$ docker run --rm python:3.11-slim bash -c "pip install -q bcrypt && python3 -c \"import bcrypt; print(bcrypt.hashpw(b'AdminPassword123!', bcrypt.gensalt(10)).decode())\""
+$2b$10$M1tsK2jrPBSfmUEYF63l4.mZM4R0u3SKgsiTldp.xjF2LxoLki.R2
+```
+
+**If Python is installed locally:**
+
+```bash
+python3 -c "import bcrypt; print(bcrypt.hashpw(b'your-password-here', bcrypt.gensalt(10)).decode())"
+```
+
+**Important Security Notes:**
+- Always generate bcrypt hashes with a cost factor of at least 10
+- In production, use secure methods (not online generators)
+- Never commit cleartext passwords to version control
+- Each run produces a different hash (due to random salt) - this is normal and secure!
+- Always change the default passwords in production
+
+#### Generating UUIDs
+
+Each user needs a unique UUID (version 4). You can generate these using minimal standard tools:
+
+**Example: Using Python (no external dependencies):**
+
+```bash
+$ python3 -c "import uuid; print(uuid.uuid4())"
+f47ac10b-58cc-4372-a567-0e02b2c3d479
+```
+
+**Using Linux kernel:**
+
+```bash
+cat /proc/sys/kernel/random/uuid
+```
+
+
+#### User Cleanup
+
+After deployment, you can optionally delete specific users using the cleanup hook:
+
+```yaml
+mongodb:
+  cleanup:
+    enabled: true
+    usersToDelete:
+      - "albert.einstein@example.com"
+      - "nikola.tesla@example.com"
+```
+
+This is useful if you want to remove default users while keeping custom users created during initialization.
 
 ### Password Security Guidelines
 

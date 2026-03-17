@@ -34,14 +34,14 @@ server:
       memory: "1Gi"
       cpu: "500m"
   
-   # Environment variables
-    env:
-     clientUrl: "https://gdi-fdp.example.com"
-     persistentUrl: ""  # Defaults to clientUrl if empty
-     title: "BG GDI DEV FAIR Data Point"
-     description: "A FAIR Data Point instance for development and testing purposes."
-     healthSolrEnabled: true
-     infoEnabled: true
+  # Environment variables
+  env:
+    clientUrl: "https://gdi-fdp.example.com"
+    persistentUrl: ""  # Defaults to clientUrl if empty
+    title: "BG GDI DEV FAIR Data Point"
+    description: "A FAIR Data Point instance for development and testing purposes."
+    healthSolrEnabled: true
+    infoEnabled: true
   
   # MongoDB connection
   mongo:
@@ -85,8 +85,8 @@ client:
       memory: "512Mi"
       cpu: "250m"
   
-   # FDP Server connection
-   # fdpHost is now dynamically set to the fdp-server service URL and should not be overridden
+  # FDP Server connection
+  # fdpHost is now dynamically set to the fdp-server service URL and should not be overridden
 
 # MongoDB configuration
 mongodb:
@@ -145,6 +145,44 @@ mongodb:
     limits:
       memory: "1Gi"
       cpu: "500m"
+  
+  # Initialize MongoDB with default users
+  # Set enabled: false to skip user initialization
+  init:
+    enabled: false
+    # List of users to create on first deployment
+    # Passwords are hashed using bcrypt (cost factor 10)
+    # The 'password' field below is optional and only for reference - the system uses 'passwordHash'
+    users:
+      - uuid: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        firstName: "Admin"
+        lastName: "User"
+        email: "admin@example.com"
+        # Optional: plaintext password for reference only (not used by the system)
+        password: "AdminPassword123!"
+        # Use generated bcrypt hash (cost factor 10)
+        # Example to generate: docker run --rm python:3.11-slim bash -c "pip install -q bcrypt && python3 -c \"import bcrypt; print(bcrypt.hashpw(b'AdminPassword123!', bcrypt.gensalt(10)).decode())\""
+        passwordHash: "$2b$10$M1tsK2jrPBSfmUEYF63l4.mZM4R0u3SKgsiTldp.xjF2LxoLki.R2"
+        role: "ADMIN"
+      - uuid: "131b32be-37d2-49df-b67c-be59aefafde7"
+        firstName: "Test"
+        lastName: "User"
+        email: "test@example.com"
+        # Optional: plaintext password for reference only (not used by the system)
+        password: "TestPassword123!"
+        # Use generated bcrypt hash (cost factor 10)
+        # Example to generate: docker run --rm python:3.11-slim bash -c "pip install -q bcrypt && python3 -c \"import bcrypt; print(bcrypt.hashpw(b'TestPassword123!', bcrypt.gensalt(10)).decode())\""
+        passwordHash: "$2b$10$u0cuYZwkBaQEqZ.ooHflTeaJZi73bCkNPmpuMo7rFaAnGjAoi2Lpu"
+        role: "USER"
+  
+  # Cleanup configuration - removes specified users after deployment
+  cleanup:
+    enabled: false
+    # List of email addresses to delete after deployment
+    # This is useful for removing default users if you want to start with a clean slate
+    usersToDelete:
+      - "albert.einstein@example.com"
+      - "nikola.tesla@example.com"
 
 # GraphDB configuration
 graphdb:
